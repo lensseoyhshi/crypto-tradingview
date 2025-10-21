@@ -117,8 +117,12 @@ def open_position(action, symbol):
             return False
 
         # 5. 开仓
-        side = 'long' if action == 'buy' else 'short'
-        order = exchange.create_order(symbol, 'market', side, amount)
+        if action == 'buy':
+            order = exchange.create_market_buy_order(symbol, amount)
+            side = 'buy'
+        else:
+            order = exchange.create_market_sell_order(symbol, amount)
+            side = 'sell'
 
         logger.info(f"开仓成功: {symbol} {side} {amount} @ {current_price}")
 
