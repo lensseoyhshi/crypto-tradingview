@@ -7,7 +7,7 @@ import json
 from logging.handlers import TimedRotatingFileHandler
 
 class MultiAssetTradingBot:
-    def __init__(self, config, feishu_webhook=None, monitor_interval=4):
+    def __init__(self, config, wechat_webhook=None, monitor_interval=4):
         self.leverage = float(config["leverage"])
         self.stop_loss_pct = config["stop_loss_pct"]
         self.low_trail_stop_loss_pct = config["low_trail_stop_loss_pct"]
@@ -16,7 +16,7 @@ class MultiAssetTradingBot:
         self.low_trail_profit_threshold = config["low_trail_profit_threshold"]
         self.first_trail_profit_threshold = config["first_trail_profit_threshold"]
         self.second_trail_profit_threshold = config["second_trail_profit_threshold"]
-        self.feishu_webhook = feishu_webhook
+        self.wechat_webhook = wechat_webhook
         self.blacklist = set(config.get("blacklist", []))
         self.monitor_interval = monitor_interval  # 从配置文件读取的监控循环时间
 
@@ -55,24 +55,24 @@ class MultiAssetTradingBot:
         self.current_tiers = {}
         self.detected_positions = set()
 
-    def send_feishu_notification(self, message):
-        """发送飞书通知"""
-        if self.feishu_webhook:
+    def send_wechat(self, message):
+        """发送企业微信通知"""
+        if self.wechat_webhook:
             try:
                 headers = {'Content-Type': 'application/json'}
                 payload = {
-                    "msg_type": "text",
-                    "content": {
-                        "text": message
+                    "msgtype": "text",
+                    "text": {
+                        "content": message
                     }
                 }
-                response = requests.post(self.feishu_webhook, json=payload, headers=headers)
+                response = requests.post(self.wechat_webhook, json=payload, headers=headers)
                 if response.status_code == 200:
-                    self.logger.info("飞书通知发送成功")
+                    self.logger.info("企业微信通知发送成功")
                 else:
-                    self.logger.error("飞书通知发送失败，状态码: %s", response.status_code)
+                    self.logger.error("企业微信通知发送失败，状态码: %s", response.status_code)
             except Exception as e:
-                self.logger.error("发送飞书通知时出现异常: %s", str(e))
+                self.logger.error("发送企业微信通知时出现异常: %s", str(e))
 
     def schedule_task(self):
         """主循环，控制执行时间"""
@@ -86,7 +86,7 @@ class MultiAssetTradingBot:
         except Exception as e:
             error_message = f"程序异常退出: {str(e)}"
             self.logger.error(error_message)
-            self.send_feishu_notification(error_message)
+            self.send_wechat(error_message)
 
     def fetch_positions(self):
         try:
@@ -100,7 +100,7 @@ class MultiAssetTradingBot:
         try:
             order = self.exchange.create_order(symbol, 'market', side, amount, None, {'type': 'future'})
             self.logger.info(f"Closed position for {symbol} with size {amount}, side: {side}")
-            self.send_feishu_notification(f"Closed position for {symbol} with size {amount}, side: {side}")
+            self.send_wechat(f"平仓: {symbol}\n数量: {amount}\n方向: {side}")
             # 清除检测过的仓位及相关数据
             self.detected_positions.discard(symbol)
             self.highest_profits.pop(symbol, None)  # 清除最高盈利值
@@ -125,7 +125,7 @@ class MultiAssetTradingBot:
             # 检查是否在黑名单中
             if symbol in self.blacklist:
                 if symbol not in self.detected_positions:  # 仅在首次检测时发送通知
-                    self.send_feishu_notification(f"检测到黑名单品种：{symbol}，跳过监控")
+                    self.send_wechat(f"⚠️ 检测到黑名单品种：{symbol}，跳过监控")
                     self.detected_positions.add(symbol)  # 避免重复通知
                 continue  # 跳过黑名单中的品种
 
@@ -135,7 +135,7 @@ class MultiAssetTradingBot:
                 self.highest_profits[symbol] = 0  # 重置最高盈利值
                 self.current_tiers[symbol] = "无"  # 重置档位
                 self.logger.info(f"首次检测到仓位：{symbol}, 仓位数量: {position_amt}, 开仓价格: {entry_price}, 方向: {side}")
-                self.send_feishu_notification(f"首次检测到仓位：{symbol}, 仓位数量: {position_amt}, 开仓价格: {entry_price}, 方向: {side}，已重置档位跟最高盈利记录， 开始监控...")
+                self.send_wechat(f"✅ 首次检测到仓位：\n{symbol}\n数量: {position_amt}\n开仓价: {entry_price}\n方向: {side}\n已重置档位跟最高盈利记录，开始监控...")
 
             # 根据方向计算浮动盈亏百分比
             if side == 'long':  # 多头
@@ -201,10 +201,10 @@ class MultiAssetTradingBot:
 if __name__ == '__main__':
     with open('config.json', 'r') as f:
         config_data = json.load(f)
-    # 选择交易平台，假设这里选择 OKX
+    # 选择交易平台，使用 Binance
     platform_config = config_data['binance']
-    feishu_webhook_url = config_data['feishu_webhook']
+    wechat_webhook_url = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=83dd158e-e006-4c8f-b2b4-679a21da892e"
     monitor_interval = config_data.get("monitor_interval", 4)  # 默认值为4秒
 
-    bot = MultiAssetTradingBot(platform_config, feishu_webhook=feishu_webhook_url, monitor_interval=monitor_interval)
+    bot = MultiAssetTradingBot(platform_config, wechat_webhook=wechat_webhook_url, monitor_interval=monitor_interval)
     bot.schedule_task()
