@@ -51,7 +51,7 @@
         "apiKey": "5e8f8b2a2f2693b8d66e3ef988e03bfa",
         "secret": "a0c9d09bfb47e3153b3837a0b235db29c2908e10b38b54bd4cabe69c10f5c080",
         "capital": 5,
-        "leverage": 3,
+        "leverage": 30,
         "stop_loss_pct": 2,
         "low_trail_stop_loss_pct": 0.2,
         "trail_stop_loss_pct": 0.2,
