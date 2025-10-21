@@ -32,19 +32,19 @@ def init_exchange():
     try:
         with open('config.json', 'r') as f:
             config = json.load(f)
-        
+
         gateio_config = config['gateio']
-        
+
         # 从配置文件读取本金和杠杆
         CAPITAL = gateio_config.get('capital', 30)
         LEVERAGE = gateio_config.get('leverage', 3)
-        
+
         exchange = ccxt.gateio({
             'apiKey': gateio_config['apiKey'],
             'secret': gateio_config['secret'],
             'options': {'defaultType': 'future'},
         })
-        
+
         logger.info(f"交易所初始化成功 - 本金: {CAPITAL}U, 杠杆: {LEVERAGE}x")
         return True
     except Exception as e:
@@ -76,7 +76,7 @@ def close_position(symbol):
             if contracts != 0:
                 side = 'sell' if pos['side'] == 'long' else 'buy'
                 amount = abs(contracts)
-                
+
                 exchange.create_order(symbol, 'market', side, amount)
                 logger.info(f"平仓成功: {symbol}, 方向: {pos['side']}, 数量: {amount}")
                 send_wechat(f"平仓: {symbol} {pos['side']} {amount}")
@@ -101,19 +101,17 @@ def open_position(action, symbol):
         current_price = ticker['last']
 
         # 4. 计算持仓数量
-        markets = exchange.load_markets()
         amount = (CAPITAL * LEVERAGE) / current_price
 
-        # 精度调整
-        precision = markets[symbol]['precision']['amount']
-        amount = round(amount, precision)
+        # 精度调整 - 使用交易所的精度格式化方法
+        amount = float(exchange.amount_to_precision(symbol, amount))
 
         # 5. 开仓
         side = 'long' if action == 'buy' else 'short'
         order = exchange.create_order(symbol, 'market', side, amount)
 
         logger.info(f"开仓成功: {symbol} {side} {amount} @ {current_price}")
-        
+
         msg = f"""交易执行成功:
 {symbol}
 方向: {side}
@@ -122,9 +120,9 @@ def open_position(action, symbol):
 杠杆: {LEVERAGE}x
 本金: {CAPITAL}U"""
         send_wechat(msg)
-        
+
         return True
-        
+
     except Exception as e:
         logger.error(f"开仓失败: {e}")
         send_wechat(f"交易失败: {symbol} {action} - {e}")
@@ -137,19 +135,19 @@ def webhook():
     try:
         data = request.get_json()
         logger.info(f"收到信号: {data}")
-        
+
         # 只需要 action 和 symbol
         action = data.get('action')  # buy 或 sell
-        symbol = 'ETH/USDT:USDT' # 如: BTCUSDT 或 BTC/USDT:USDT
-        
+        symbol = 'ETH/USDT:USDT'  # 如: BTCUSDT 或 BTC/USDT:USDT
+
         if not action or not symbol:
             return jsonify({'error': '缺少action或symbol参数'}), 400
-        
+
         # 只处理ETH的单子
         if 'ETH' not in symbol.upper():
             logger.info(f"忽略非ETH信号: {symbol}")
             return jsonify({'status': 'ignored', 'message': '只接受ETH交易信号'}), 200
-        
+
         # 转换symbol格式：ETHUSDT -> ETH/USDT:USDT
         if '/' not in symbol:
             # 处理 TradingView 的 ticker 格式，如 ETHUSDT
@@ -158,15 +156,15 @@ def webhook():
                 symbol = f"{base}/USDT:USDT"
             else:
                 symbol = f"{symbol}/USDT:USDT"
-        
+
         # 执行交易（使用市价）
         success = open_position(action, symbol)
-        
+
         if success:
             return jsonify({'status': 'success'}), 200
         else:
             return jsonify({'status': 'error'}), 500
-            
+
     except Exception as e:
         logger.error(f"处理失败: {e}")
         return jsonify({'error': str(e)}), 500
