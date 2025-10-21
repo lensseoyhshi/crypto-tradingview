@@ -1,0 +1,23 @@
+2025-10-21 17:49:58,940 - INFO - 交易所初始化成功 - 本金: 5U, 杠杆: 3x
+2025-10-21 17:49:58,940 - INFO - Webhook服务启动...
+2025-10-21 17:49:58,940 - INFO - 地址: http://0.0.0.0:5000/webhook
+2025-10-21 17:52:26,735 - INFO - 交易所初始化成功 - 本金: 5U, 杠杆: 3x
+2025-10-21 17:52:26,735 - INFO - Webhook服务启动...
+2025-10-21 17:52:26,735 - INFO - 地址: http://0.0.0.0:8000/webhook
+2025-10-21 17:52:28,269 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8000
+ * Running on http://192.168.0.242:8000
+2025-10-21 17:52:28,269 - INFO - [33mPress CTRL+C to quit[0m
+2025-10-21 18:05:47,707 - INFO - 交易所初始化成功 - 本金: 5U, 杠杆: 3x
+2025-10-21 18:05:47,707 - INFO - Webhook服务启动...
+2025-10-21 18:05:47,707 - INFO - 地址: http://0.0.0.0:8000/webhook
+2025-10-21 18:05:47,715 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8000
+ * Running on http://192.168.0.242:8000
+2025-10-21 18:05:47,715 - INFO - [33mPress CTRL+C to quit[0m
+2025-10-21 18:05:56,640 - INFO - 收到信号: {'action': 'sell'}
+2025-10-21 18:06:10,647 - ERROR - 开仓失败: gateio {"message":"Request IP not in whitelist: 51.162.138.97","label":"FORBIDDEN"}
+2025-10-21 18:06:11,141 - INFO - 企业微信通知发送成功
+2025-10-21 18:06:11,141 - INFO - 127.0.0.1 - - [21/Oct/2025 18:06:11] "[35m[1mPOST /webhook HTTP/1.1[0m" 500 -

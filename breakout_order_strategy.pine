@@ -1,0 +1,628 @@
+// © AlgoAlpha
+// This Source Code is subject to the Mozilla Public License 2.0
+// https://mozilla.org/MPL/2.0/
+//@version=6
+
+// ============================================================================
+// 策略说明：智能突破策略 + 分档移动止盈系统
+// 
+// 功能特点：
+// 1. 基于通道突破的开仓信号
+// 2. 支持传统固定止盈止损
+// 3. 支持分档移动止盈系统（与Python版本一致）
+// 4. 支持高频实时监控平仓
+// 5. 完整的可视化状态显示
+// ============================================================================
+
+strategy("突破单-做多", "突破单-做多", overlay=true, max_boxes_count = 500, default_qty_type=strategy.percent_of_equity, default_qty_value=100)
+import TradingView/ta/10
+
+// ============================================================================
+// 输入参数配置
+// ============================================================================
+
+// 主要设置组 - 通道突破相关参数
+overlap = input.bool(false, "嵌套通道", group = "主要设置", tooltip="启用时允许多个通道重叠。禁用时只能存在一个通道。重叠通道可以同时显示多个突破水平")
+strong = input.bool(true, "强势收盘", "启用时，突破仅在超过50%的K线实体位于通道外时触发。这减少了由影线产生的虚假信号。禁用时，任何价格移动到通道外都会触发突破", group = "主要设置")
+length_ = input.int(100, title="标准化长度", minval=1, group = "主要设置", tooltip="用于计算价格标准化的最高价和最低价的K线数量。较高值创建更稳定的标准化但对最近价格变化的响应较慢")
+length = input.int(15, "通道检测长度", minval=1, group = "主要设置", tooltip="用于检测通道形成模式的K线数量。较低值创建更频繁的通道但可能对噪音更敏感。较高值创建更少但可能更重要的通道")
+
+// 策略设置组 - 基础交易参数
+take_profit_pct = input.float(1.0, "固定止盈 %", minval=0.1, maxval=10.0, step=0.1, group="策略设置", tooltip="传统固定止盈百分比（仅在禁用分档移动止盈时使用）")
+stop_loss_pct = input.float(2.0, "固定止损 %", minval=1.0, maxval=50.0, step=0.5, group="策略设置", tooltip="固定止损百分比，同时也是分档移动止盈的最大止损线")
+use_position_sizing = input.bool(true, "使用仓位管理", group="策略设置", tooltip="启用基于风险的仓位计算")
+risk_per_trade = input.float(2.0, "每笔交易风险 %", minval=0.1, maxval=10.0, step=0.1, group="策略设置", tooltip="每笔交易承担的账户资金风险百分比")
+
+// 分档移动止盈设置组 - 与Python版本完全一致的参数
+low_trail_stop_loss_pct = input.float(0.1, "低档保护回撤 %", minval=0.1, maxval=5.0, step=0.1, group="分档移动止盈", tooltip="低档保护止盈的回撤百分比，达到低档保护阈值后，回撤到此百分比时止盈")
+trail_stop_loss_pct = input.float(0.2, "第一档回撤比例", minval=0.1, maxval=1.0, step=0.05, group="分档移动止盈", tooltip="第一档移动止盈的回撤比例，如0.2表示从最高盈利回撤20%时止盈")
+higher_trail_stop_loss_pct = input.float(0.25, "第二档回撤比例", minval=0.1, maxval=1.0, step=0.05, group="分档移动止盈", tooltip="第二档移动止盈的回撤比例，如0.25表示从最高盈利回撤25%时止盈")
+
+low_trail_profit_threshold = input.float(0.15, "低档保护激活阈值 %", minval=0.1, maxval=5.0, step=0.05, group="分档移动止盈", tooltip="达到此盈利百分比后激活低档保护止盈（建议设置较低值以提供更早保护）")
+first_trail_profit_threshold = input.float(1.0, "第一档激活阈值 %", minval=0.5, maxval=10.0, step=0.1, group="分档移动止盈", tooltip="达到此盈利百分比后激活第一档移动止盈")
+second_trail_profit_threshold = input.float(3.0, "第二档激活阈值 %", minval=1.0, maxval=20.0, step=0.5, group="分档移动止盈", tooltip="达到此盈利百分比后激活第二档移动止盈")
+
+use_trailing_stops = input.bool(true, "启用分档移动止盈", group="分档移动止盈", tooltip="启用分档移动止盈逻辑，禁用时使用传统固定止盈止损")
+high_freq_monitoring = input.bool(true, "高频监控模式", group="分档移动止盈", tooltip="启用高频监控模式，每次价格更新时判断平仓（类似Python版本的秒级监控）")
+
+// 成交量分析设置组
+shw_vol = input.bool(true, "显示成交量分析", "启用时，在通道内显示成交量分析K线图。这有助于识别可能先于突破的成交量模式", group = "成交量分析")
+vol_mode = input.string("Comparison", "成交量显示模式", options=["Volume", "Comparison", "Delta"], group="成交量分析", tooltip="Volume: 显示总成交量为对称柱状图。Comparison: 上涨成交量在中线上方，下跌成交量在下方。Delta: 显示净成交量差值（正值在上方，负值在下方）")
+tf = input.timeframe("1", "成交量数据时间框架", group = "成交量分析", tooltip="用于计算成交量差值数据的时间框架。较低时间框架提供更精细的成交量分析但可能更嘈杂")
+vol_scale = input.float(0.5, "成交量缩放", minval=0.1, maxval=2.0, step=0.1, group="成交量分析", tooltip="调整成交量柱相对于通道大小的高度。较高值使成交量柱更突出，较低值使其更微妙")
+
+// 外观设置组
+text_size    = input.string("Tiny", "成交量文字大小", options=["Tiny","Small","Medium","Large"], group="外观设置", tooltip="通道角落成交量文字的大小")
+green = input.color(#00ffbb, title = "看涨颜色", group = "外观设置", tooltip = "看涨视觉元素的主要颜色。调整为首选调色板 - 当动量为正时影响柱状图、填充和标签")
+red   = input.color(#ff1100, title = "看跌颜色", group = "外观设置", tooltip = "看跌视觉元素的主要颜色。调整为首选调色板 - 当动量为负时影响柱状图、填充和标签")
+
+// ============================================================================
+// 变量定义
+// ============================================================================
+
+// 通道绘制相关变量
+var boxes = array.new_box()        // 主通道框数组
+var boxes_u = array.new_box()      // 上方阻力区框数组
+var boxes_l = array.new_box()      // 下方支撑区框数组
+
+// 成交量指示器相关变量
+var line[] gaugeLines = array.new<line>()    // 成交量指示器线条数组
+var label gaugeLabel = na                    // 成交量指示器标签
+var line[] centerLines = array.new<line>()  // 通道中心线数组
+
+// 策略交易状态变量
+var float entry_price = na          // 开仓价格记录
+var bool in_position = false        // 当前是否持仓标志
+
+// 分档移动止盈核心状态变量
+var float highest_profit = 0.0      // 持仓期间的最高盈利百分比
+var string current_tier = "无"      // 当前所在的止盈档位
+var float long_stop_price = na      // 多头止损价格（备用）
+var bool use_dynamic_stop = false   // 是否使用动态止损标志
+
+// ============================================================================
+// 辅助函数定义
+// ============================================================================
+
+// 文字大小转换函数
+// 将字符串形式的大小转换为Pine Script的size枚举
+textSize(text_size) =>
+    switch text_size
+        "Tiny"  => size.tiny      // 微小
+        "Small" => size.small     // 小
+        "Medium"=> size.normal    // 中等
+        "Large" => size.large     // 大
+
+// 通道重叠检查函数
+// 检查新通道是否与现有通道重叠（用于嵌套通道控制）
+// @param tNew: 新通道的上边界
+// @param bNew: 新通道的下边界  
+// @returns: true表示可以创建，false表示有重叠
+f_can_create(float tNew, float bNew) =>
+    ok = true
+    if boxes.size() > 0
+        for j = 0 to boxes.size()-1
+            if (tNew > boxes.get(j).get_bottom()) and (bNew < boxes.get(j).get_top())
+                ok := false    // 发现重叠，不能创建
+                break
+    ok
+
+// 成交量透明度计算函数
+// 根据成交量与平滑成交量的比例计算显示透明度
+getVolumeTransparency(float vol, float smoothed_vol) =>
+    if vol_mode == "Volume"
+        float vol_ratio = vol / smoothed_vol
+        float transparency = math.max(20, math.min(80, 80 - (vol_ratio - 0.5) * 40))
+        transparency
+    else
+        0
+
+// ============================================================================
+// 分档移动止盈核心函数
+// ============================================================================
+
+// 分档移动止盈逻辑处理函数
+// 这是整个分档移动止盈系统的核心函数，与Python版本逻辑完全一致
+// @param current_highest: 当前记录的最高盈利百分比
+// @param current_tier_val: 当前所在档位
+// @returns: [should_close, new_highest, new_tier] 
+//   - should_close: 是否应该平仓
+//   - new_highest: 更新后的最高盈利
+//   - new_tier: 更新后的档位
+updateTrailingStop(current_highest, current_tier_val) =>
+    if in_position and use_trailing_stops and not na(entry_price)
+        // 计算当前盈利百分比
+        current_profit = (close - entry_price) / entry_price * 100
+        
+        // 更新最高盈利记录
+        new_highest = current_profit > current_highest ? current_profit : current_highest
+        
+        // 根据最高盈利确定当前档位
+        // 档位系统：无 -> 低档保护 -> 第一档移动 -> 第二档移动
+        new_tier = new_highest >= second_trail_profit_threshold ? "第二档移动止盈" : (new_highest >= first_trail_profit_threshold ? "第一档移动止盈" : (new_highest >= low_trail_profit_threshold ? "低档保护止盈" : "无"))
+        
+        // 根据档位计算是否触发平仓条件
+        should_close = false
+        
+        if new_tier == "低档保护止盈"
+            // 低档保护：回撤到固定百分比时止盈
+            should_close := current_profit <= low_trail_stop_loss_pct
+        else if new_tier == "第一档移动止盈"
+            // 第一档：基于最高盈利的回撤比例止盈
+            trail_stop_loss = new_highest * (1 - trail_stop_loss_pct)
+            should_close := current_profit <= trail_stop_loss
+        else if new_tier == "第二档移动止盈"
+            // 第二档：基于最高盈利的更高回撤比例止盈
+            trail_stop_loss = new_highest * (1 - higher_trail_stop_loss_pct)
+            should_close := current_profit <= trail_stop_loss
+        
+        // 固定止损检查（最后的安全网）
+        if current_profit <= -stop_loss_pct
+            should_close := true
+            
+        [should_close, new_highest, new_tier]
+    else
+        // 未持仓或未启用分档移动止盈时，返回原值
+        [false, current_highest, current_tier_val]
+
+// ============================================================================
+// 核心计算逻辑
+// ============================================================================
+
+// 价格标准化计算
+lowestLow = ta.lowest(low, length_)                              // 指定周期内的最低价
+highestHigh = ta.highest(high, length_)                          // 指定周期内的最高价
+normalizedPrice = (close - lowestLow) / (highestHigh - lowestLow) // 价格标准化到0-1区间
+vol = ta.stdev(normalizedPrice, 14)                              // 标准化价格的标准差（波动率）
+
+// 通道边界计算
+upper = (ta.highestbars(vol, length + 1) + length)/length        // 上边界相对位置
+lower = (ta.lowestbars(vol, length + 1) + length)/length         // 下边界相对位置
+
+// 突破信号变量初始化
+upbreak = 0.0      // 向上突破价格记录
+downbreak = 0.0    // 向下突破价格记录
+
+// 通道持续时间和价格范围计算
+duration = math.max(nz(ta.barssince(ta.crossover(lower,upper))), 1)  // 当前通道持续的K线数量
+h = ta.highest(duration)      // 通道期间的最高价
+l = ta.lowest(duration)       // 通道期间的最低价
+
+// 成交量数据获取（分别获取上涨、下跌成交量和成交量差值）
+[uv, dv, vold] = ta.requestUpAndDownVolume(tf)
+
+// 成交量差值的最高最低值追踪
+var hvold = vold              // 历史最高成交量差值
+var lvold = vold              // 历史最低成交量差值
+
+// 在新通道开始时重置成交量差值记录
+if ta.crossover(lower, upper)
+    hvold := vold
+    lvold := vold
+
+// 实时更新成交量差值的极值
+if vold > hvold
+    hvold := vold             // 更新最高成交量差值
+
+if vold < lvold
+    lvold := vold             // 更新最低成交量差值
+
+// 成交量相关计算
+smoothedvol = ta.sma(volume, 20)    // 20周期平滑成交量
+vola = ta.atr(length)/2             // 平均真实范围的一半（用于通道厚度）
+
+// 信号状态标志变量
+bool newChannelFormed = false    // 是否形成新通道
+bool bullishBreakout = false     // 是否发生看涨突破
+bool bearishBreakout = false     // 是否发生看跌突破
+
+if ta.crossover(upper, lower) and duration > 10
+    if overlap or f_can_create(h, l)
+        boxes.unshift(box.new(bar_index-duration, h, bar_index, l, bgcolor = color.new(chart.fg_color, 90), border_color = na))
+        boxes_u.unshift(box.new(bar_index-duration, h, bar_index, h-vola, bgcolor = color.new(red, 70), border_color = na))
+        boxes_l.unshift(box.new(bar_index-duration, l+vola, bar_index, l, bgcolor = color.new(green, 70), border_color = na))
+
+        float centerY = (h + l) / 2
+        centerLines.unshift(line.new(bar_index-duration, centerY, bar_index, centerY, color = color.new(chart.fg_color, 50), width = 1, style = line.style_dashed))
+        newChannelFormed := true
+
+if boxes.size() > 0
+    for i = 0 to boxes.size()-1
+        if ((strong ? math.avg(close, open) : close) > boxes.get(i).get_top())
+            upbreak := boxes.get(i).get_bottom()
+            boxes.remove(i)
+            boxes_u.remove(i)
+            boxes_l.remove(i)
+            centerLines.remove(i)
+            bullishBreakout := true
+
+        else if ((strong ? math.avg(close, open) : close) < boxes.get(i).get_bottom())
+            downbreak := boxes.get(i).get_top()
+            boxes.remove(i)
+            boxes_u.remove(i)
+            boxes_l.remove(i)
+            centerLines.remove(i)
+            bearishBreakout := true
+
+        else
+            boxes.get(i).set_right(bar_index)
+            boxes_u.get(i).set_right(bar_index)
+            boxes_l.get(i).set_right(bar_index)
+            centerLines.get(i).set_x2(bar_index)
+
+            // Add volume text to appropriate box based on price position
+            float boxMidline = (boxes.get(i).get_top() + boxes.get(i).get_bottom()) / 2
+            float currentPrice = strong ? math.avg(close, open) : close
+
+            string volText = ""
+            if vol_mode == "Volume"
+                volText := str.tostring(math.round(volume / 1000, 1)) + "K"
+            else if vol_mode == "Comparison"
+                volText := str.tostring(math.round(uv / 1000, 1)) + "K/" + str.tostring(math.round(dv / 1000, 1)) + "K"
+            else if vol_mode == "Delta"
+                volText := str.tostring(math.round(vold / 1000, 1)) + "K"
+
+            if currentPrice > boxMidline
+                // Price is above midline, add text to lower (green) box
+                boxes_l.get(i).set_text(volText)
+                boxes_l.get(i).set_text_halign(text.align_right)
+                boxes_l.get(i).set_text_color(color.new(chart.fg_color, 30))
+                boxes_l.get(i).set_text_size(textSize(text_size))
+                boxes_u.get(i).set_text("")
+            else
+                // Price is below midline, add text to upper (red) box
+                boxes_u.get(i).set_text(volText)
+                boxes_u.get(i).set_text_halign(text.align_right)
+                boxes_u.get(i).set_text_color(color.new(chart.fg_color, 30))
+                boxes_u.get(i).set_text_size(textSize(text_size))
+                boxes_l.get(i).set_text("")
+
+float currentMidline = na
+float channelHeight = na
+
+if boxes.size() > 0
+    float topBound = boxes.get(0).get_top()
+    float bottomBound = boxes.get(0).get_bottom()
+    currentMidline := (topBound + bottomBound) / 2
+    channelHeight := (topBound - bottomBound) * vol_scale
+
+float vol_upper_open = na
+float vol_upper_high = na
+float vol_upper_low = na
+float vol_upper_close = na
+
+float vol_lower_open = na
+float vol_lower_high = na
+float vol_lower_low = na
+float vol_lower_close = na
+
+if not na(currentMidline) and not na(channelHeight) and shw_vol
+    if vol_mode == "Volume"
+        float vol_height = (volume / smoothedvol) * (channelHeight / 4)
+        vol_upper_open := currentMidline
+        vol_upper_close := currentMidline + vol_height
+        vol_upper_high := currentMidline + vol_height
+        vol_upper_low := currentMidline
+
+        vol_lower_open := currentMidline
+        vol_lower_close := currentMidline - vol_height
+        vol_lower_high := currentMidline
+        vol_lower_low := currentMidline - vol_height
+
+    else if vol_mode == "Comparison"
+        float uv_height = na(uv) ? 0 : (uv / smoothedvol) * (channelHeight / 4)
+        float dv_height = na(dv) ? 0 : (dv / smoothedvol) * (channelHeight / 4)
+
+        vol_upper_open := currentMidline
+        vol_upper_close := currentMidline + uv_height
+        vol_upper_high := currentMidline + uv_height
+        vol_upper_low := currentMidline
+
+        vol_lower_open := currentMidline
+        vol_lower_close := currentMidline + dv_height
+        vol_lower_high := currentMidline
+        vol_lower_low := currentMidline + dv_height
+
+    else if vol_mode == "Delta"
+        float delta_height = na(vold) ? 0 : math.abs(vold / smoothedvol) * (channelHeight / 4)
+
+        if vold >= 0
+            vol_upper_open := currentMidline
+            vol_upper_close := currentMidline + delta_height
+            vol_upper_high := currentMidline + delta_height
+            vol_upper_low := currentMidline
+
+            vol_lower_open := currentMidline
+            vol_lower_close := currentMidline
+            vol_lower_high := currentMidline
+            vol_lower_low := currentMidline
+        else
+            vol_upper_open := currentMidline
+            vol_upper_close := currentMidline
+            vol_upper_high := currentMidline
+            vol_upper_low := currentMidline
+
+            vol_lower_open := currentMidline
+            vol_lower_close := currentMidline - delta_height
+            vol_lower_high := currentMidline
+            vol_lower_low := currentMidline - delta_height
+
+color upperColor = na
+color lowerColor = na
+
+if vol_mode == "Volume"
+    float transparency = getVolumeTransparency(volume, smoothedvol)
+    upperColor := color.new(chart.fg_color, transparency)
+    lowerColor := color.new(chart.fg_color, transparency)
+else
+    upperColor := green
+    lowerColor := red
+
+// ============================================================================
+// 策略交易逻辑
+// ============================================================================
+
+// 数据充足性检查（确保有足够的历史数据进行计算）
+bool enoughData = bar_index >= 100
+
+// 开仓条件：看涨突破 + 数据充足 + 当前无持仓
+if bullishBreakout and enoughData and not in_position
+    // 记录开仓价格和状态
+    entry_price := close
+    in_position := true
+    
+    // 重置分档移动止盈状态变量
+    highest_profit := 0.0         // 重置最高盈利记录
+    current_tier := "无"          // 重置档位状态
+    long_stop_price := na         // 重置止损价格
+    use_dynamic_stop := false     // 重置动态止损标志
+    
+    // 基于风险管理计算仓位大小
+    // 如果启用仓位管理：根据风险百分比和止损百分比计算仓位
+    // 如果未启用：使用100%资金
+    float qty = use_position_sizing ? (strategy.equity * risk_per_trade / 100) / (close * stop_loss_pct / 100) : 100
+    
+    // 执行开仓操作
+    strategy.entry("Long", strategy.long, qty=qty)
+    
+    // 根据用户选择决定使用哪种退场逻辑
+    if use_trailing_stops
+        // 模式1：分档移动止盈逻辑
+        // 初始只设置固定止损作为安全网，实际平仓由分档逻辑控制
+        strategy.exit("Exit Long", "Long", stop=close * (1 - stop_loss_pct / 100))
+        use_dynamic_stop := true  // 启用动态止损监控
+    else
+        // 模式2：传统固定止盈止损（原始逻辑）
+        strategy.exit("Exit Long", "Long", 
+                     limit=close * (1 + take_profit_pct / 100),   // 固定止盈
+                     stop=close * (1 - stop_loss_pct / 100))      // 固定止损
+
+// ============================================================================
+// 分档移动止盈核心逻辑 - 高频实时监控系统
+// ============================================================================
+
+if in_position and use_dynamic_stop
+    // 高频监控模式：获取实时价格数据
+    // 注意：在Pine Script中，close在K线形成过程中会实时更新
+    real_time_price = high_freq_monitoring ? close : close
+    real_time_profit = (real_time_price - entry_price) / entry_price * 100
+    
+    // 防止错过价格突刺（spike）：同时检查当前K线的最高价
+    // 这确保了即使是瞬间的高点也会被记录为最高盈利
+    high_price_profit = (high - entry_price) / entry_price * 100
+    max_profit_this_bar = math.max(real_time_profit, high_price_profit)
+    
+    // 更新持仓期间的最高盈利记录
+    // 这是分档移动止盈系统的核心数据
+    if max_profit_this_bar > highest_profit
+        highest_profit := max_profit_this_bar
+    
+    // 根据最高盈利确定当前档位
+    // 档位系统：无 -> 低档保护止盈 -> 第一档移动止盈 -> 第二档移动止盈
+    current_tier := highest_profit >= second_trail_profit_threshold ? "第二档移动止盈" : (highest_profit >= first_trail_profit_threshold ? "第一档移动止盈" : (highest_profit >= low_trail_profit_threshold ? "低档保护止盈" : "无"))
+    
+    // 改进的平仓判断逻辑 - 检查K线内的所有价格点
+    should_close_now = false
+    
+    // 计算K线内各个价格点的盈利情况
+    float open_profit = (open - entry_price) / entry_price * 100
+    float high_profit = (high - entry_price) / entry_price * 100
+    float low_profit = (low - entry_price) / entry_price * 100
+    float close_profit = (close - entry_price) / entry_price * 100
+    
+    // 声明变量
+    float stop_trigger_price = 0.0
+    float trail_stop_loss = 0.0
+    float stop_loss_price = entry_price * (1 - stop_loss_pct / 100)
+    
+    if current_tier == "低档保护止盈"
+        // 低档保护：检查是否回撤到固定百分比
+        should_close_now := real_time_profit <= low_trail_stop_loss_pct
+        
+    else if current_tier == "第一档移动止盈"
+        // 第一档移动：基于最高盈利的回撤比例
+        trail_stop_loss := highest_profit * (1 - trail_stop_loss_pct)
+        should_close_now := real_time_profit <= trail_stop_loss
+        
+    else if current_tier == "第二档移动止盈"
+        // 第二档移动：基于最高盈利的更高回撤比例
+        trail_stop_loss := highest_profit * (1 - higher_trail_stop_loss_pct)
+        should_close_now := real_time_profit <= trail_stop_loss
+    
+    // 固定止损检查
+    if real_time_profit <= -stop_loss_pct
+        should_close_now := true
+    
+    // 执行平仓操作
+    if should_close_now
+        // 直接平仓，使用当前价格
+        strategy.close("Long", comment="Trailing Stop: " + current_tier + " @" + str.tostring(real_time_profit, "#.##") + "%")
+        
+        // 重置所有状态变量
+        in_position := false
+        entry_price := na
+        highest_profit := 0.0
+        current_tier := "无"
+        long_stop_price := na
+        use_dynamic_stop := false
+
+// ============================================================================
+// 持仓状态同步更新
+// ============================================================================
+
+// 检测策略平仓后的状态同步
+// 当strategy.position_size为0但内部状态仍显示持仓时，同步重置状态
+if strategy.position_size == 0 and in_position
+    in_position := false          // 重置持仓标志
+    entry_price := na             // 清除开仓价格
+    highest_profit := 0.0         // 重置最高盈利
+    current_tier := "无"          // 重置档位
+    long_stop_price := na         // 清除止损价格
+    use_dynamic_stop := false     // 关闭动态止损
+
+// ============================================================================
+// VISUALS
+// ============================================================================
+
+plotshape(upbreak != 0 ? upbreak : na, "Bullish Breakout Signal", shape.labelup, location.absolute, green, text = "▲", textcolor = chart.fg_color)
+plotshape(downbreak != 0 ? downbreak : na, "Bearish Breakout Signal", shape.labeldown, location.absolute, red, text = "▼", textcolor = chart.fg_color)
+
+// 分档移动止盈状态显示
+var table infoTable = na
+if barstate.islast and use_trailing_stops
+    if not na(infoTable)
+        table.delete(infoTable)
+    
+    infoTable := table.new(position.top_left, 1, 8, bgcolor=color.new(color.white, 80), border_width=1, border_color=color.gray)
+    
+    // 标题
+    title_text = high_freq_monitoring ? "高频移动止盈监控" : "分档移动止盈状态"
+    title_color = high_freq_monitoring ? color.new(color.green, 70) : color.new(color.blue, 70)
+    table.cell(infoTable, 0, 0, title_text, text_color=color.black, text_size=size.small, bgcolor=title_color)
+    
+    if in_position and not na(entry_price)
+        // 使用与逻辑判断相同的实时盈利计算
+        real_time_price_for_display = high_freq_monitoring ? close : close
+        current_profit = (real_time_price_for_display - entry_price) / entry_price * 100
+        
+        // 当前盈利
+        profit_text = "当前盈利: " + str.tostring(current_profit, "#.##") + "%"
+        profit_color = current_profit >= 0 ? color.green : color.red
+        table.cell(infoTable, 0, 1, profit_text, text_color=profit_color, text_size=size.small)
+        
+        // 最高盈利
+        highest_text = "最高盈利: " + str.tostring(highest_profit, "#.##") + "%"
+        table.cell(infoTable, 0, 2, highest_text, text_color=color.black, text_size=size.small)
+        
+        // 当前档位
+        tier_text = "当前档位: " + current_tier
+        tier_color = current_tier == "无" ? color.gray : (current_tier == "低档保护止盈" ? color.orange : (current_tier == "第一档移动止盈" ? color.blue : color.purple))
+        table.cell(infoTable, 0, 3, tier_text, text_color=tier_color, text_size=size.small)
+        
+        // 下一档位阈值
+        next_threshold = current_tier == "无" ? low_trail_profit_threshold : (current_tier == "低档保护止盈" ? first_trail_profit_threshold : (current_tier == "第一档移动止盈" ? second_trail_profit_threshold : na))
+        
+        if not na(next_threshold)
+            threshold_text = "下一档位: " + str.tostring(next_threshold, "#.##") + "%"
+            table.cell(infoTable, 0, 4, threshold_text, text_color=color.gray, text_size=size.small)
+        else
+            table.cell(infoTable, 0, 4, "已达最高档位", text_color=color.purple, text_size=size.small)
+        
+        // 监控模式显示
+        monitor_text = high_freq_monitoring ? "高频实时监控" : "K线级监控"
+        monitor_color = high_freq_monitoring ? color.green : color.orange
+        table.cell(infoTable, 0, 5, monitor_text, text_color=monitor_color, text_size=size.small)
+        
+        // 添加调试信息（第6行）
+        debug_text = "调试: 最高" + str.tostring(highest_profit, "#.##") + "% | 当前" + str.tostring(current_profit, "#.##") + "%"
+        table.cell(infoTable, 0, 6, debug_text, text_color=color.gray, text_size=size.tiny)
+        
+        // 添加更详细的调试信息（第7行）
+        if current_tier == "第一档移动止盈"
+            trail_stop_threshold = highest_profit * (1 - trail_stop_loss_pct)
+            debug_detail = "第一档: " + str.tostring(trail_stop_threshold, "#.##") + "% | 触发=" + (current_profit <= trail_stop_threshold ? "是" : "否")
+            table.cell(infoTable, 0, 7, debug_detail, text_color=color.yellow, text_size=size.tiny)
+        else if current_tier == "低档保护止盈"
+            debug_detail = "低档: " + str.tostring(low_trail_stop_loss_pct, "#.##") + "% | 触发=" + (current_profit <= low_trail_stop_loss_pct ? "是" : "否")
+            table.cell(infoTable, 0, 7, debug_detail, text_color=color.yellow, text_size=size.tiny)
+        else
+            table.cell(infoTable, 0, 7, "档位: " + current_tier, text_color=color.gray, text_size=size.tiny)
+    else
+        table.cell(infoTable, 0, 1, "无持仓", text_color=color.gray, text_size=size.small)
+        table.cell(infoTable, 0, 2, "", text_color=color.white, text_size=size.small)
+        table.cell(infoTable, 0, 3, "", text_color=color.white, text_size=size.small)
+        table.cell(infoTable, 0, 4, "", text_color=color.white, text_size=size.small)
+        table.cell(infoTable, 0, 5, high_freq_monitoring ? "高频模式待机" : "标准模式待机", text_color=color.gray, text_size=size.small)
+        table.cell(infoTable, 0, 6, "", text_color=color.white, text_size=size.small)
+        table.cell(infoTable, 0, 7, "", text_color=color.white, text_size=size.small)
+
+plotcandle(vol_upper_open, vol_upper_high, vol_upper_low, vol_upper_close, color=upperColor, wickcolor=upperColor, bordercolor=upperColor)
+plotcandle(vol_lower_open, vol_lower_high, vol_lower_low, vol_lower_close, color=lowerColor, wickcolor=lowerColor, bordercolor=lowerColor)
+
+volumeAvailable = not na(volume)
+
+if barstate.islast
+    bool channelActive = boxes.size() > 0 and upbreak == 0 and downbreak == 0
+
+    if array.size(gaugeLines) > 0
+        for ln in gaugeLines
+            ln.delete()
+        gaugeLines.clear()
+
+    if not na(gaugeLabel)
+        gaugeLabel.delete()
+        gaugeLabel := na
+
+    if channelActive
+        float topBound    = boxes.get(0).get_top()
+        float bottomBound = boxes.get(0).get_bottom()
+
+        if not na(topBound) and not na(bottomBound) and topBound != bottomBound
+            int segments = 21
+            float segLen = (topBound - bottomBound) / segments
+
+            for i = 0 to segments - 1
+                float y1 = topBound   - i * segLen
+                float y2 = topBound   - (i + 1) * segLen
+                color segCol = color.from_gradient(y1, bottomBound, topBound, red, green)
+                line ln = line.new(x1 = bar_index + 2,
+                                     y1 = y1,
+                                     x2 = bar_index + 2,
+                                     y2 = y2,
+                                     color = segCol,
+                                     width = 4)
+                gaugeLines.unshift(ln)
+
+            float delvol = -100*2*((vold-lvold)/(hvold-lvold)-0.5)
+            delvol := math.max(math.min(delvol, 100), -100)
+            float pointerPos = topBound - ((delvol + 100) / 200) * (topBound - bottomBound)
+            gaugeLabel := label.new(x = bar_index + 3,
+                                     y = pointerPos,
+                                     text = "◀",
+                                     color = na,
+                                     textcolor = chart.fg_color,
+                                     size = size.small,
+                                     style = label.style_label_left)
+
+if not volumeAvailable
+    var gaugeWarnTable = table.new(position = position.top_right, columns = 1, rows = 1, bgcolor = red, border_width = 1, border_color = chart.fg_color, frame_color = chart.fg_color, frame_width = 1)
+    table.cell(gaugeWarnTable, 0, 0, "Volume not available\nGauge may not work as expected", text_color = chart.fg_color, text_halign = text.align_center, text_size = size.small)
+
+// ============================================================================
+// ALERTS
+// ============================================================================
+
+alertcondition(newChannelFormed, "New Channel Formation", "A new breakout channel has been formed")
+alertcondition(bullishBreakout, "Bullish Breakout", "Price has broken out above the channel (bullish signal)")
+alertcondition(bearishBreakout, "Bearish Breakout", "Price has broken out below the channel (bearish signal)")
+
+// 分档移动止盈警报
+tier_changed = current_tier != current_tier[1] and in_position
+alertcondition(tier_changed and current_tier == "低档保护止盈", "Low Trail Protection Activated", "已激活低档保护止盈")
+alertcondition(tier_changed and current_tier == "第一档移动止盈", "First Trail Level Activated", "已激活第一档移动止盈")
+alertcondition(tier_changed and current_tier == "第二档移动止盈", "Second Trail Level Activated", "已激活第二档移动止盈")
+
+// 平仓警报
+[should_close_alert, _, _] = updateTrailingStop(highest_profit, current_tier)
+should_close_final = in_position and use_dynamic_stop and should_close_alert
+alertcondition(should_close_final, "Trailing Stop Triggered", "分档移动止盈触发平仓")
