@@ -42,7 +42,7 @@ def init_exchange():
         exchange = ccxt.gateio({
             'apiKey': gateio_config['apiKey'],
             'secret': gateio_config['secret'],
-            'options': {'defaultType': 'future'},
+            'options': {'defaultType': 'swap'},  # 使用永续合约，最小数量更小
         })
 
         logger.info(f"交易所初始化成功 - 本金: {CAPITAL}U, 杠杆: {LEVERAGE}x")
@@ -105,6 +105,16 @@ def open_position(action, symbol):
 
         # 精度调整 - 使用交易所的精度格式化方法
         amount = float(exchange.amount_to_precision(symbol, amount))
+
+        # 检查最小交易数量
+        markets = exchange.load_markets()
+        min_amount = markets[symbol].get('limits', {}).get('amount', {}).get('min', 0)
+        if min_amount > 0 and amount < min_amount:
+            need_capital = min_amount * current_price / LEVERAGE
+            error_msg = f"数量不足: {amount:.4f} < {min_amount}，需要至少 {need_capital:.2f}U 本金"
+            logger.error(error_msg)
+            send_wechat(f"⚠️ {error_msg}")
+            return False
 
         # 5. 开仓
         side = 'long' if action == 'buy' else 'short'
