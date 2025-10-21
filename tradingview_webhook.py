@@ -33,19 +33,21 @@ def init_exchange():
         with open('config.json', 'r') as f:
             config = json.load(f)
 
-        gateio_config = config['gateio']
+        binance_config = config['binance']
 
         # 从配置文件读取本金和杠杆
-        CAPITAL = gateio_config.get('capital', 30)
-        LEVERAGE = gateio_config.get('leverage', 3)
+        CAPITAL = binance_config.get('capital', 30)
+        LEVERAGE = binance_config.get('leverage', 3)
 
-        exchange = ccxt.gateio({
-            'apiKey': gateio_config['apiKey'],
-            'secret': gateio_config['secret'],
-            'options': {'defaultType': 'swap'},  # 使用永续合约，最小数量更小
+        exchange = ccxt.binance({
+            'apiKey': binance_config['apiKey'],
+            'secret': binance_config['secret'],
+            'options': {
+                'defaultType': 'future',  # 币安使用 future
+            },
         })
 
-        logger.info(f"交易所初始化成功 - 本金: {CAPITAL}U, 杠杆: {LEVERAGE}x")
+        logger.info(f"币安交易所初始化成功 - 本金: {CAPITAL}U, 杠杆: {LEVERAGE}x")
         return True
     except Exception as e:
         logger.error(f"初始化交易所失败: {e}")
@@ -71,13 +73,16 @@ def close_position(symbol):
     try:
         positions = exchange.fetch_positions([symbol])
         for pos in positions:
-            # Gate.io 使用 'contracts' 字段表示持仓数量
+            # 币安使用 'contracts' 或 'info.positionAmt'
             contracts = float(pos.get('contracts', 0))
+            if contracts == 0 and 'info' in pos:
+                contracts = float(pos['info'].get('positionAmt', 0))
+
             if contracts != 0:
                 side = 'sell' if pos['side'] == 'long' else 'buy'
                 amount = abs(contracts)
 
-                exchange.create_order(symbol, 'market', side, amount)
+                exchange.create_order(symbol, 'market', side, amount, params={'reduceOnly': True})
                 logger.info(f"平仓成功: {symbol}, 方向: {pos['side']}, 数量: {amount}")
                 send_wechat(f"平仓: {symbol} {pos['side']} {amount}")
                 return True
@@ -91,7 +96,11 @@ def open_position(action, symbol):
     """开仓"""
     try:
         # 1. 设置杠杆
-        exchange.set_leverage(LEVERAGE, symbol)
+        try:
+            exchange.set_leverage(LEVERAGE, symbol)
+            logger.info(f"设置杠杆成功: {LEVERAGE}x")
+        except Exception as e:
+            logger.warning(f"设置杠杆失败（可能已设置）: {e}")
 
         # 2. 平掉现有持仓
         close_position(symbol)

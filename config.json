@@ -1,8 +1,9 @@
 {
     "binance": {
-        "apiKey": "",
-        "secret": "",
-        "leverage": 1.0,
+       "apiKey": "8JP9AxNttRkj0mLyxondD22CCB9wWQ8U9NDZ9FA3zftOqrThDEN0UaE5qDng1zct",
+        "secret": "RtewA8FyNrKRvzliNSUZ9J1IT6AXwJWZrC252Om2nt4FqMt7ZWg4lgxC8pWFOYSO",
+        "capital": 30,
+        "leverage": 3,
         "stop_loss_pct": 2,
         "low_trail_stop_loss_pct": 0.3,
         "trail_stop_loss_pct": 0.2,
@@ -10,7 +11,7 @@
         "low_trail_profit_threshold": 0.4,
         "first_trail_profit_threshold": 1.0,
         "second_trail_profit_threshold": 3.0,
-        "blacklist": ["ETH/USDT:USDT","ETH/USDT:USDT"]
+        "blacklist": []
     },
     "okx": {
         "apiKey": "",
@@ -50,8 +51,8 @@
     "gateio": {
         "apiKey": "5e8f8b2a2f2693b8d66e3ef988e03bfa",
         "secret": "a0c9d09bfb47e3153b3837a0b235db29c2908e10b38b54bd4cabe69c10f5c080",
-        "capital": 5,
-        "leverage": 30,
+        "capital": 1000,
+        "leverage": 3,
         "stop_loss_pct": 2,
         "low_trail_stop_loss_pct": 0.2,
         "trail_stop_loss_pct": 0.2,
