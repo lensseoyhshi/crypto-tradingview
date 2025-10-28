@@ -1,31 +1,77 @@
 {
+    "_comment_global": "=== 全局配置 ===",
+    "monitor_interval": 4,
+    "_comment_monitor_interval": "监控循环时间间隔（秒），默认4秒检查一次持仓",
+    
+    "feishu_webhook": "https://open.feishu.cn/open-apis/bot/v2/hook/655821a2",
+    "_comment_feishu_webhook": "飞书机器人 webhook 地址，用于发送通知消息",
+
+    "_comment_binance": "=== 币安交易所配置 ===",
     "binance": {
-       "apiKey": "8JP9AxNttRkj0mLyxondD22CCB9wWQ8U9NDZ9FA3zftOqrThDEN0UaE5qDng1zct",
+        "apiKey": "8JP9AxNttRkj0mLyxondD22CCB9wWQ8U9NDZ9FA3zftOqrThDEN0UaE5qDng1zct",
         "secret": "RtewA8FyNrKRvzliNSUZ9J1IT6AXwJWZrC252Om2nt4FqMt7ZWg4lgxC8pWFOYSO",
+        "_comment_api": "币安 API 密钥和密钥",
+        
         "capital": 100,
+        "_comment_capital": "交易资金（USDT）",
+        
         "leverage": 10,
-        "stop_loss_pct": 2,
-        "low_trail_stop_loss_pct": 0.3,
-        "trail_stop_loss_pct": 0.2,
+        "_comment_leverage": "杠杆倍数",
+        
+        "stop_loss_pct": 40,
+        "_comment_stop_loss_pct": "固定止损百分比，亏损达到此值时强制平仓（例如 40 表示 -40%）",
+        
+        "low_trail_profit_threshold": 10,
+        "_comment_low_trail_profit_threshold": "低档保护止盈触发阈值（%），盈利达到此值进入低档保护模式",
+        
+        "low_trail_stop_loss_pct": 5,
+        "_comment_low_trail_stop_loss_pct": "低档回撤止盈点（%），进入低档保护后回撤到此值就平仓",
+        
+        "first_trail_profit_threshold": 50,
+        "_comment_first_trail_profit_threshold": "第一档移动止盈触发阈值（%），盈利达到此值进入第一档移动止盈",
+        
+        "trail_stop_loss_pct": 0.5,
+        "_comment_trail_stop_loss_pct": "第一档回撤比例（0-1），例如 0.5 表示回撤到最高盈利的50%时平仓",
+        
+        "second_trail_profit_threshold": 70,
+        "_comment_second_trail_profit_threshold": "第二档移动止盈触发阈值（%），盈利达到此值进入第二档移动止盈",
+        
         "higher_trail_stop_loss_pct": 0.25,
-        "low_trail_profit_threshold": 0.4,
-        "first_trail_profit_threshold": 1.0,
-        "second_trail_profit_threshold": 3.0,
-        "blacklist": []
+        "_comment_higher_trail_stop_loss_pct": "第二档回撤比例（0-1），例如 0.25 表示回撤到最高盈利的75%时平仓",
+        
+        "blacklist": [],
+        "_comment_blacklist": "黑名单交易对列表，这些交易对不进行监控，例如 ['BTC/USDT:USDT', 'ETH/USDT:USDT']"
     },
+
+    "_comment_okx": "=== OKX 交易所配置 ===",
     "okx": {
         "apiKey": "",
         "secret": "",
         "password": "",
+        "_comment_api": "OKX API 密钥、密钥和交易密码",
+        
         "leverage": 1.0,
+        "_comment_leverage": "杠杆倍数",
+        
         "stop_loss_pct": 2,
-        "low_trail_stop_loss_pct": 0.2,
-        "trail_stop_loss_pct": 0.2,
-        "higher_trail_stop_loss_pct": 0.25,
+        "_comment_stop_loss_pct": "固定止损百分比（%）",
+        
         "low_trail_profit_threshold": 0.3,
+        "low_trail_stop_loss_pct": 0.2,
+        "_comment_low_trail": "低档保护：盈利达到 0.3% 后，回撤到 0.2% 就平仓",
+        
         "first_trail_profit_threshold": 1.0,
+        "trail_stop_loss_pct": 0.2,
+        "_comment_first_trail": "第一档移动止盈：盈利达到 1% 后，回撤 20% 就平仓",
+        
         "second_trail_profit_threshold": 3.0,
+        "higher_trail_stop_loss_pct": 0.25,
+        "_comment_second_trail": "第二档移动止盈：盈利达到 3% 后，回撤 25% 就平仓",
+        
         "blacklist": ["ETH/USDT:USDT","BTC/USDT:USDT"],
+        "_comment_blacklist": "黑名单交易对，不进行监控",
+        
+        "_comment_all": "以下是全仓模式的止盈止损参数",
         "all_stop_loss_pct": 0.2,
         "all_low_trail_stop_loss_pct": 0.1,
         "all_trail_stop_loss_pct": 0.2,
@@ -34,34 +80,64 @@
         "all_first_trail_profit_threshold": 1.0,
         "all_second_trail_profit_threshold": 3.0
     },
+
+    "_comment_bitget": "=== Bitget 交易所配置 ===",
     "bitget": {
         "apiKey": "",
         "secret": "",
         "password": "",
+        "_comment_api": "Bitget API 密钥、密钥和交易密码",
+        
         "leverage": 1.0,
+        "_comment_leverage": "杠杆倍数",
+        
         "stop_loss_pct": 2,
-        "low_trail_stop_loss_pct": 0.2,
-        "trail_stop_loss_pct": 0.2,
-        "higher_trail_stop_loss_pct": 0.25,
+        "_comment_stop_loss_pct": "固定止损百分比（%）",
+        
         "low_trail_profit_threshold": 0.3,
+        "low_trail_stop_loss_pct": 0.2,
+        "_comment_low_trail": "低档保护：盈利达到 0.3% 后，回撤到 0.2% 就平仓",
+        
         "first_trail_profit_threshold": 1.0,
+        "trail_stop_loss_pct": 0.2,
+        "_comment_first_trail": "第一档移动止盈：盈利达到 1% 后，回撤 20% 就平仓",
+        
         "second_trail_profit_threshold": 3.0,
-        "blacklist": ["ETH-USDT-SWAP"]
+        "higher_trail_stop_loss_pct": 0.25,
+        "_comment_second_trail": "第二档移动止盈：盈利达到 3% 后，回撤 25% 就平仓",
+        
+        "blacklist": ["ETH-USDT-SWAP"],
+        "_comment_blacklist": "黑名单交易对，注意 Bitget 格式为 ETH-USDT-SWAP"
     },
+
+    "_comment_gateio": "=== Gate.io 交易所配置 ===",
     "gateio": {
         "apiKey": "5e8f8b2a2f2693b8d66e3ef988e03bfa",
         "secret": "a0c9d09bfb47e3153b3837a0b235db29c2908e10b38b54bd4cabe69c10f5c080",
+        "_comment_api": "Gate.io API 密钥和密钥",
+        
         "capital": 1000,
+        "_comment_capital": "交易资金（USDT）",
+        
         "leverage": 3,
+        "_comment_leverage": "杠杆倍数",
+        
         "stop_loss_pct": 2,
-        "low_trail_stop_loss_pct": 0.2,
-        "trail_stop_loss_pct": 0.2,
-        "higher_trail_stop_loss_pct": 0.25,
+        "_comment_stop_loss_pct": "固定止损百分比（%）",
+        
         "low_trail_profit_threshold": 0.3,
+        "low_trail_stop_loss_pct": 0.2,
+        "_comment_low_trail": "低档保护：盈利达到 0.3% 后，回撤到 0.2% 就平仓",
+        
         "first_trail_profit_threshold": 1.0,
+        "trail_stop_loss_pct": 0.2,
+        "_comment_first_trail": "第一档移动止盈：盈利达到 1% 后，回撤 20% 就平仓",
+        
         "second_trail_profit_threshold": 3.0,
-        "blacklist": []
-    },
-    "feishu_webhook": "https://open.feishu.cn/open-apis/bot/v2/hook/655821a2",
-    "monitor_interval": 4
+        "higher_trail_stop_loss_pct": 0.25,
+        "_comment_second_trail": "第二档移动止盈：盈利达到 3% 后，回撤 25% 就平仓",
+        
+        "blacklist": [],
+        "_comment_blacklist": "黑名单交易对列表"
+    }
 }
