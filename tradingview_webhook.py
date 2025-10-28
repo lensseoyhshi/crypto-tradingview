@@ -161,6 +161,9 @@ def webhook():
 
         # 只需要 action 和 symbol
         action = data.get('action')  # buy 或 sell
+        if action is None or action not in ['buy', 'sell']:
+            return jsonify({'status': 'success'}), 200
+
         symbol = 'ETH/USDT:USDT'  # 如: BTCUSDT 或 BTC/USDT:USDT
 
         if not action or not symbol:

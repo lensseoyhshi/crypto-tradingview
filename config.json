@@ -2,8 +2,8 @@
     "binance": {
        "apiKey": "8JP9AxNttRkj0mLyxondD22CCB9wWQ8U9NDZ9FA3zftOqrThDEN0UaE5qDng1zct",
         "secret": "RtewA8FyNrKRvzliNSUZ9J1IT6AXwJWZrC252Om2nt4FqMt7ZWg4lgxC8pWFOYSO",
-        "capital": 30,
-        "leverage": 3,
+        "capital": 100,
+        "leverage": 10,
         "stop_loss_pct": 2,
         "low_trail_stop_loss_pct": 0.3,
         "trail_stop_loss_pct": 0.2,

@@ -21,3 +21,28 @@
 2025-10-21 18:06:10,647 - ERROR - 开仓失败: gateio {"message":"Request IP not in whitelist: 51.162.138.97","label":"FORBIDDEN"}
 2025-10-21 18:06:11,141 - INFO - 企业微信通知发送成功
 2025-10-21 18:06:11,141 - INFO - 127.0.0.1 - - [21/Oct/2025 18:06:11] "[35m[1mPOST /webhook HTTP/1.1[0m" 500 -
+2025-10-28 15:26:43,598 - INFO - 币安交易所初始化成功 - 本金: 30U, 杠杆: 3x
+2025-10-28 15:26:43,599 - INFO - Webhook服务启动...
+2025-10-28 15:26:43,599 - INFO - 地址: http://0.0.0.0:8000/webhook
+2025-10-28 15:26:43,620 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8000
+ * Running on http://192.168.0.92:8000
+2025-10-28 15:26:43,620 - INFO - [33mPress CTRL+C to quit[0m
+2025-10-28 15:28:01,965 - ERROR - 处理失败: 400 Bad Request: The browser (or proxy) sent a request that this server could not understand.
+2025-10-28 15:28:01,968 - INFO - 127.0.0.1 - - [28/Oct/2025 15:28:01] "[35m[1mPOST /webhook HTTP/1.1[0m" 500 -
+2025-10-28 15:28:26,735 - ERROR - 处理失败: 400 Bad Request: The browser (or proxy) sent a request that this server could not understand.
+2025-10-28 15:28:26,737 - INFO - 127.0.0.1 - - [28/Oct/2025 15:28:26] "[35m[1mPOST /webhook HTTP/1.1[0m" 500 -
+2025-10-28 15:28:44,102 - ERROR - 处理失败: 400 Bad Request: The browser (or proxy) sent a request that this server could not understand.
+2025-10-28 15:28:44,104 - INFO - 127.0.0.1 - - [28/Oct/2025 15:28:44] "[35m[1mPOST /webhook HTTP/1.1[0m" 500 -
+2025-10-28 15:29:16,611 - INFO - 收到信号: {'action': 'buy', 'symbol': 'ETHUSD', 'price': '4112.28', 'time': '2025-10-28T07:00:10Z'}
+2025-10-28 15:29:51,722 - INFO - 币安交易所初始化成功 - 本金: 30U, 杠杆: 3x
+2025-10-28 15:29:51,722 - INFO - Webhook服务启动...
+2025-10-28 15:29:51,722 - INFO - 地址: http://0.0.0.0:8000/webhook
+2025-10-28 15:29:51,730 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8000
+ * Running on http://192.168.0.92:8000
+2025-10-28 15:29:51,730 - INFO - [33mPress CTRL+C to quit[0m
+2025-10-28 15:30:03,550 - INFO - 收到信号: {'action': 'long', 'symbol': 'ETHUSD', 'price': '4112.28', 'time': '2025-10-28T07:00:10Z'}
+2025-10-28 15:30:09,614 - INFO - 127.0.0.1 - - [28/Oct/2025 15:30:09] "POST /webhook HTTP/1.1" 200 -
