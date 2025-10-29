@@ -12,28 +12,28 @@
         "secret": "RtewA8FyNrKRvzliNSUZ9J1IT6AXwJWZrC252Om2nt4FqMt7ZWg4lgxC8pWFOYSO",
         "_comment_api": "币安 API 密钥和密钥",
         
-        "capital": 100,
+        "capital": 300,
         "_comment_capital": "交易资金（USDT）",
         
-        "leverage": 10,
+        "leverage": 20,
         "_comment_leverage": "杠杆倍数",
         
-        "stop_loss_pct": 40,
+        "stop_loss_pct": 50,
         "_comment_stop_loss_pct": "固定止损百分比，亏损达到此值时强制平仓（例如 40 表示 -40%）",
         
         "low_trail_profit_threshold": 10,
         "_comment_low_trail_profit_threshold": "低档保护止盈触发阈值（%），盈利达到此值进入低档保护模式",
         
-        "low_trail_stop_loss_pct": 5,
+        "low_trail_stop_loss_pct": 7,
         "_comment_low_trail_stop_loss_pct": "低档回撤止盈点（%），进入低档保护后回撤到此值就平仓",
         
-        "first_trail_profit_threshold": 50,
+        "first_trail_profit_threshold": 40,
         "_comment_first_trail_profit_threshold": "第一档移动止盈触发阈值（%），盈利达到此值进入第一档移动止盈",
         
         "trail_stop_loss_pct": 0.5,
         "_comment_trail_stop_loss_pct": "第一档回撤比例（0-1），例如 0.5 表示回撤到最高盈利的50%时平仓",
         
-        "second_trail_profit_threshold": 70,
+        "second_trail_profit_threshold": 60,
         "_comment_second_trail_profit_threshold": "第二档移动止盈触发阈值（%），盈利达到此值进入第二档移动止盈",
         
         "higher_trail_stop_loss_pct": 0.25,
