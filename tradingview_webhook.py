@@ -205,7 +205,7 @@ def health():
 if __name__ == '__main__':
     if init_exchange():
         logger.info("Webhook服务启动...")
-        logger.info("地址: http://0.0.0.0:8000/webhook")
-        app.run(host='0.0.0.0', port=8000, debug=False)
+        logger.info("地址: http://0.0.0.0:80/webhook")
+        app.run(host='0.0.0.0', port=80, debug=False)
     else:
         logger.error("启动失败")
