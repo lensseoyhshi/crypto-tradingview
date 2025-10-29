@@ -36,8 +36,8 @@ def init_exchange():
         binance_config = config['binance']
 
         # 从配置文件读取本金和杠杆
-        CAPITAL = binance_config.get('capital', 30)
-        LEVERAGE = binance_config.get('leverage', 3)
+        CAPITAL = binance_config.get('capital')
+        LEVERAGE = binance_config.get('leverage')
 
         exchange = ccxt.binance({
             'apiKey': binance_config['apiKey'],
