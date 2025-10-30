@@ -137,11 +137,11 @@ class MultiAssetTradingBot:
                 self.logger.info(f"首次检测到仓位：{symbol}, 仓位数量: {position_amt}, 开仓价格: {entry_price}, 方向: {side}")
                 self.send_wechat(f"✅ 首次检测到仓位：\n{symbol}\n数量: {position_amt}\n开仓价: {entry_price}\n方向: {side}\n已重置档位跟最高盈利记录，开始监控...")
 
-            # 根据方向计算浮动盈亏百分比
+            # 根据方向计算浮动盈亏百分比（乘以杠杆得到实际账户盈亏）
             if side == 'long':  # 多头
-                profit_pct = (current_price - entry_price) / entry_price * 100
+                profit_pct = (current_price - entry_price) / entry_price * 100 * self.leverage
             elif side == 'short':  # 空头
-                profit_pct = (entry_price - current_price) / entry_price * 100
+                profit_pct = (entry_price - current_price) / entry_price * 100 * self.leverage
             else:
                 continue
 
