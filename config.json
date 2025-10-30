@@ -12,7 +12,7 @@
         "secret": "RtewA8FyNrKRvzliNSUZ9J1IT6AXwJWZrC252Om2nt4FqMt7ZWg4lgxC8pWFOYSO",
         "_comment_api": "币安 API 密钥和密钥",
         
-        "capital": 300,
+        "capital": 40,
         "_comment_capital": "交易资金（USDT）",
         
         "leverage": 20,
