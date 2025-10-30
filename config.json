@@ -27,7 +27,7 @@
         "low_trail_stop_loss_pct": 8,
         "_comment_low_trail_stop_loss_pct": "低档回撤止盈点（%），进入低档保护后回撤到此值就平仓",
         
-        "first_trail_profit_threshold": 40,
+        "first_trail_profit_threshold": 30,
         "_comment_first_trail_profit_threshold": "第一档移动止盈触发阈值（%），盈利达到此值进入第一档移动止盈",
         
         "trail_stop_loss_pct": 0.5,
